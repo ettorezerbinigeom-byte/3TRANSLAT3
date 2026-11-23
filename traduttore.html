@@ -43,6 +43,11 @@
   .azioni button { flex: 1; font-size: 14px; padding: 9px 4px; border-radius: 10px;
     border: 1px solid var(--line); background: transparent; color: var(--text); }
   .azioni button:active { background: var(--accent-soft); }
+  #rapidi { padding: 4px 12px 10px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+    max-width: 1200px; margin: 0 auto; }
+  #rapidi span { width: 100%; text-align: center; font-size: 13px; color: var(--muted); }
+  #rapidi button { font-size: 14px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--accent-soft); color: var(--text); }
   footer { text-align: center; font-size: 12px; color: var(--muted); padding: 0 16px 24px; }
 </style>
 </head>
@@ -51,6 +56,8 @@
   <h1>3TRANSLAT3</h1>
   <span id="stato"></span>
 </header>
+
+<nav id="rapidi" aria-label="Dialetti"></nav>
 
 <main id="caselle"></main>
 
@@ -73,7 +80,10 @@
 const GOOGLE = "https://translate.googleapis.com/translate_a/";
 const PREDEFINITE = ["it", "en", "es"];
 const ATTESA_MS = 700;          // pausa dopo l'ultima lettera prima di tradurre
-const DIALETTI = { scn: "Siciliano", vec: "Veneziano", lij: "Ligure", lmo: "Lombardo", fur: "Friulano" };
+// Dialetti italiani: i primi 5 li traduce Google, il sardo lo traduce Apertium (passando dall'italiano).
+const DIALETTI = { lij: "Genovese (Ligure)", scn: "Siciliano", vec: "Veneziano", lmo: "Lombardo",
+  fur: "Friulano", srd: "Sardo (sperimentale)" };
+const APERTIUM = "https://apertium.org/apy/translate";
 const RISERVA = { it:"Italiano", en:"Inglese", es:"Spagnolo", fr:"Francese", de:"Tedesco", pt:"Portoghese",
   ro:"Rumeno", ru:"Russo", uk:"Ucraino", pl:"Polacco", nl:"Olandese", el:"Greco", sq:"Albanese", ar:"Arabo",
   "zh-CN":"Cinese (semplificato)", ja:"Giapponese", ko:"Coreano", tr:"Turco", hi:"Hindi", ca:"Catalano",
@@ -102,7 +112,7 @@ function stato(msg, errore = false) {
 
 function costruisciElenco(mappa) {
   const m = Object.assign({}, mappa);
-  for (const [c, n] of Object.entries(DIALETTI)) if (!m[c]) m[c] = n;
+  for (const [c, n] of Object.entries(DIALETTI)) m[c] = n;
   return Object.entries(m)
     .map(([code, n]) => ({ code, name: n.charAt(0).toUpperCase() + n.slice(1), dialetto: code in DIALETTI }))
     .sort((a, b) => a.name.localeCompare(b.name, "it"));
@@ -118,7 +128,22 @@ async function caricaLingue() {
   return costruisciElenco(RISERVA);
 }
 
+async function apertium(testo, coppia) {
+  const r = await fetch(APERTIUM + "?langpair=" + encodeURIComponent(coppia) + "&q=" + encodeURIComponent(testo));
+  if (!r.ok) throw new Error("Apertium " + r.status);
+  const t = (await r.json()).responseData.translatedText || "";
+  return t.replace(/[*#@]/g, "");   // toglie i segni delle parole sconosciute
+}
+
 async function traduci(testo, da, a) {
+  if (da === a) return testo;
+  // Sardo: passa sempre dall'italiano
+  if (a === "srd") return apertium(da === "it" ? testo : await traduciGoogle(testo, da, "it"), "ita|srd");
+  if (da === "srd") { const it = await apertium(testo, "srd|ita"); return a === "it" ? it : traduciGoogle(it, "it", a); }
+  return traduciGoogle(testo, da, a);
+}
+
+async function traduciGoogle(testo, da, a) {
   if (da === a) return testo;
   const url = GOOGLE + "single?client=gtx&dt=t&sl=" + encodeURIComponent(da) +
               "&tl=" + encodeURIComponent(a) + "&q=" + encodeURIComponent(testo);
@@ -181,10 +206,15 @@ async function traduciDa(i) {
   if (!testo) { altre.forEach(c => c.area.value = ""); stato(""); return; }
   stato("Traduco…");
   try {
-    const risultati = await Promise.all(altre.map(c => traduci(testo, sorg.select.value, c.select.value)));
+    // Ogni casella va per conto suo: se una lingua non risponde, l'altra si traduce lo stesso
+    const risultati = await Promise.allSettled(altre.map(c => traduci(testo, sorg.select.value, c.select.value)));
     if (mio !== numeroRichiesta) return;   // nel frattempo hai scritto altro
-    altre.forEach((c, k) => c.area.value = risultati[k]);
-    stato("");
+    let errori = 0;
+    altre.forEach((c, k) => {
+      if (risultati[k].status === "fulfilled") c.area.value = risultati[k].value;
+      else { c.area.value = ""; errori++; }
+    });
+    stato(errori ? "Una traduzione non è riuscita, riprova tra poco" : "", errori > 0);
   } catch (e) {
     if (mio === numeroRichiesta) stato("Connessione assente o servizio occupato, riprova", true);
   }
@@ -211,9 +241,28 @@ async function copia(c) {
   setTimeout(() => stato(""), 1500);
 }
 
+function creaRapidi() {
+  const nav = document.getElementById("rapidi");
+  const t = document.createElement("span");
+  t.textContent = "Dialetti italiani: tocca per metterlo nella terza casella";
+  nav.append(t);
+  for (const [code, nome] of Object.entries(DIALETTI)) {
+    const b = document.createElement("button");
+    b.textContent = nome.replace(" (sperimentale)", "");
+    b.addEventListener("click", () => {
+      const c = caselle[2];
+      c.select.value = code; salva();
+      traduciDa(ultimaSorgente === 2 ? 0 : ultimaSorgente);
+      c.nodo.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    nav.append(b);
+  }
+}
+
 async function avvio() {
   lingue = await caricaLingue();
   creaCaselle();
+  creaRapidi();
 }
 avvio();
 </script>

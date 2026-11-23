@@ -4,7 +4,7 @@ App autonoma per Android: si installa sul telefono e funziona da sola, **senza P
 Serve solo la connessione internet (le traduzioni le fa Google Traduttore).
 
 Stesse funzioni della versione web: 3 caselle con lingua a scelta (circa 250 lingue +
-siciliano, veneziano, ligure, lombardo, friulano), traduzione automatica mentre scrivi,
+genovese (ligure), siciliano, veneziano, lombardo, friulano e sardo (sperimentale)), traduzione automatica mentre scrivi,
 pulsanti Ascolta / Copia / Cancella.
 
 ## Come si ottiene l'APK
