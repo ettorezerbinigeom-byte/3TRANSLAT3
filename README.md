@@ -1,4 +1,4 @@
-# Traduttore 3 – App Android (APK)
+# 3TRANSLAT3 – App Android (APK)
 
 App autonoma per Android: si installa sul telefono e funziona da sola, **senza PC e senza server**.
 Serve solo la connessione internet (le traduzioni le fa Google Traduttore).
@@ -32,15 +32,15 @@ cartella e dopo circa 5 minuti trovi l'APK pronto da scaricare.
    Premi **Commit changes**.
 4. Apri la scheda **Actions**: parte "Costruisci APK". Dopo circa 5 minuti diventa verde ✅.
 5. Torna nella pagina principale del repository, a destra clicca **Releases** e scarica
-   `Traduttore3.apk`. Puoi farlo direttamente dal telefono.
+   `3TRANSLAT3.apk`. Puoi farlo direttamente dal telefono.
 
 ## Installare l'APK sul telefono
-1. Apri il file `Traduttore3.apk` scaricato (dalle notifiche o da *File → Download*).
+1. Apri il file `3TRANSLAT3.apk` scaricato (dalle notifiche o da *File → Download*).
 2. Android chiede di consentire l'installazione da "origini sconosciute" per il browser o
    per l'app File: **consenti**. È normale per le app che non arrivano dal Play Store.
 3. Se Play Protect avvisa che l'app non è conosciuta: **Installa comunque**.
    L'app usa solo il permesso Internet.
-4. Trovi l'icona **Traduttore 3** tra le app.
+4. Trovi l'icona **3TRANSLAT3** tra le app.
 
 ## Aggiornamenti
 Se modifichi qualcosa (per esempio `app/src/main/assets/index.html`) e lo ricarichi su

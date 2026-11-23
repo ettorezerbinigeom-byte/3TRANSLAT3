@@ -27,12 +27,12 @@ jobs:
         run: gradle assembleRelease --no-daemon
 
       - name: Rinomina
-        run: cp app/build/outputs/apk/release/app-release.apk Traduttore3.apk
+        run: cp app/build/outputs/apk/release/app-release.apk 3TRANSLAT3.apk
 
       - name: Pubblica l'APK nella pagina Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.${{ github.run_number }}
-          name: Traduttore 3 - versione 1.${{ github.run_number }}
-          body: Scarica Traduttore3.apk dal telefono e installalo.
-          files: Traduttore3.apk
+          name: 3TRANSLAT3 - versione 1.${{ github.run_number }}
+          body: Scarica 3TRANSLAT3.apk dal telefono e installalo.
+          files: 3TRANSLAT3.apk

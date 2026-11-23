@@ -10,7 +10,7 @@
     </queries>
 
     <application
-        android:label="Traduttore 3"
+        android:label="3TRANSLAT3"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="true"
         android:theme="@style/Tema">
