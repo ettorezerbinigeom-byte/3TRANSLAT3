@@ -1,0 +1,39 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'it.ettore.traduttore'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'it.ettore.traduttore'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    // Chiave fissa inclusa nel progetto: cosi' le versioni future si installano
+    // sopra a quella vecchia senza doverla disinstallare.
+    signingConfigs {
+        personale {
+            storeFile file('traduttore.keystore')
+            storePassword 'traduttore3'
+            keyAlias 'traduttore'
+            keyPassword 'traduttore3'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.personale
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
