@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3TRANSLAT3</title>
+<meta name="theme-color" content="#1f5f8b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="3TRANSLAT3">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+  :root {
+    --bg: #f3f5f8; --card: #ffffff; --text: #1b1f24; --muted: #6b7480;
+    --line: #d9dee5; --accent: #1f5f8b; --accent-soft: #e3eef6; --err: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161b; --card: #1c2229; --text: #e8ecf0; --muted: #9aa4af;
+      --line: #2e3742; --accent: #6fb3e0; --accent-soft: #1f3445; --err: #ff8a80;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 14px 16px 6px; display: flex; align-items: baseline;
+    justify-content: space-between; gap: 8px; }
+  h1 { font-size: 20px; margin: 0; }
+  #stato { font-size: 13px; color: var(--muted); min-height: 1em; }
+  #stato.err { color: var(--err); }
+  main { padding: 6px 12px 24px; display: grid; gap: 12px;
+    grid-template-columns: 1fr; max-width: 1200px; margin: 0 auto; }
+  @media (min-width: 900px) { main { grid-template-columns: repeat(3, 1fr); } }
+  .card { background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .card.attiva { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  select { width: 100%; font-size: 16px; padding: 9px 10px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--accent-soft); color: var(--text);
+    font-weight: 600; }
+  textarea { width: 100%; min-height: 120px; resize: vertical; font-size: 17px;
+    line-height: 1.4; padding: 10px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); font-family: inherit; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .azioni { display: flex; gap: 6px; }
+  .azioni button { flex: 1; font-size: 14px; padding: 9px 4px; border-radius: 10px;
+    border: 1px solid var(--line); background: transparent; color: var(--text); }
+  .azioni button:active { background: var(--accent-soft); }
+  #rapidi { padding: 4px 12px 10px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+    max-width: 1200px; margin: 0 auto; }
+  #rapidi span { width: 100%; text-align: center; font-size: 13px; color: var(--muted); }
+  #rapidi button { font-size: 14px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--accent-soft); color: var(--text); }
+  footer { text-align: center; font-size: 12px; color: var(--muted); padding: 0 16px 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>3TRANSLAT3</h1>
+  <span id="stato"></span>
+</header>
+
+<nav id="rapidi" aria-label="Dialetti"></nav>
+
+<main id="caselle"></main>
+
+<footer>Scrivi in una casella qualsiasi: le altre due si traducono da sole.</footer>
+
+<template id="tpl-casella">
+  <section class="card">
+    <select aria-label="Lingua"></select>
+    <textarea placeholder="Scrivi qui..."></textarea>
+    <div class="azioni">
+      <button data-az="ascolta">🔊 Ascolta</button>
+      <button data-az="copia">📋 Copia</button>
+      <button data-az="cancella">✖ Cancella</button>
+    </div>
+  </section>
+</template>
+
+<script>
+// Versione autonoma: parla direttamente con Google Traduttore, nessun server/PC.
+const GOOGLE = "https://translate.googleapis.com/translate_a/";
+const PREDEFINITE = ["it", "en", "es"];
+const ATTESA_MS = 700;          // pausa dopo l'ultima lettera prima di tradurre
+// Dialetti italiani: i primi 5 li traduce Google, il sardo lo traduce Apertium (passando dall'italiano).
+const DIALETTI = { lij: "Genovese (Ligure)", scn: "Siciliano", vec: "Veneziano", lmo: "Lombardo",
+  fur: "Friulano", srd: "Sardo (sperimentale)" };
+const APERTIUM = "https://apertium.org/apy/translate";
+const RISERVA = { it:"Italiano", en:"Inglese", es:"Spagnolo", fr:"Francese", de:"Tedesco", pt:"Portoghese",
+  ro:"Rumeno", ru:"Russo", uk:"Ucraino", pl:"Polacco", nl:"Olandese", el:"Greco", sq:"Albanese", ar:"Arabo",
+  "zh-CN":"Cinese (semplificato)", ja:"Giapponese", ko:"Coreano", tr:"Turco", hi:"Hindi", ca:"Catalano",
+  co:"Corso", la:"Latino", sv:"Svedese", no:"Norvegese", da:"Danese", fi:"Finlandese", hu:"Ungherese",
+  cs:"Ceco", sk:"Slovacco", sl:"Sloveno", hr:"Croato", sr:"Serbo", bg:"Bulgaro", iw:"Ebraico", fa:"Persiano",
+  ur:"Urdu", bn:"Bengalese", th:"Thailandese", vi:"Vietnamita", id:"Indonesiano", tl:"Filippino",
+  sw:"Swahili", mt:"Maltese", ga:"Irlandese", cy:"Gallese", eu:"Basco", gl:"Galiziano" };
+const Nativo = window.Android || null;   // presente solo dentro l'app Android
+let lingue = [];
+let timer = null;
+let numeroRichiesta = 0;
+let ultimaSorgente = 0;
+const caselle = [];
+
+function leggi(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function scrivi(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+function salvate() {
+  try { const v = JSON.parse(leggi("lingue3")); if (Array.isArray(v) && v.length === 3) return v; } catch (e) {}
+  return PREDEFINITE;
+}
+function salva() { scrivi("lingue3", JSON.stringify(caselle.map(c => c.select.value))); }
+function stato(msg, errore = false) {
+  const el = document.getElementById("stato");
+  el.textContent = msg; el.classList.toggle("err", errore);
+}
+
+function costruisciElenco(mappa) {
+  const m = Object.assign({}, mappa);
+  for (const [c, n] of Object.entries(DIALETTI)) m[c] = n;
+  return Object.entries(m)
+    .map(([code, n]) => ({ code, name: n.charAt(0).toUpperCase() + n.slice(1), dialetto: code in DIALETTI }))
+    .sort((a, b) => a.name.localeCompare(b.name, "it"));
+}
+
+async function caricaLingue() {
+  try {
+    const r = await fetch(GOOGLE + "l?client=gtx&hl=it");
+    const tl = (await r.json()).tl;
+    if (tl && Object.keys(tl).length > 60) { scrivi("elencoLingue", JSON.stringify(tl)); return costruisciElenco(tl); }
+  } catch (e) {}
+  try { const s = JSON.parse(leggi("elencoLingue")); if (s) return costruisciElenco(s); } catch (e) {}
+  return costruisciElenco(RISERVA);
+}
+
+async function apertium(testo, coppia) {
+  const r = await fetch(APERTIUM + "?langpair=" + encodeURIComponent(coppia) + "&q=" + encodeURIComponent(testo));
+  if (!r.ok) throw new Error("Apertium " + r.status);
+  const t = (await r.json()).responseData.translatedText || "";
+  return t.replace(/[*#@]/g, "");   // toglie i segni delle parole sconosciute
+}
+
+async function traduci(testo, da, a) {
+  if (da === a) return testo;
+  // Sardo: passa sempre dall'italiano
+  if (a === "srd") return apertium(da === "it" ? testo : await traduciGoogle(testo, da, "it"), "ita|srd");
+  if (da === "srd") { const it = await apertium(testo, "srd|ita"); return a === "it" ? it : traduciGoogle(it, "it", a); }
+  return traduciGoogle(testo, da, a);
+}
+
+async function traduciGoogle(testo, da, a) {
+  if (da === a) return testo;
+  const url = GOOGLE + "single?client=gtx&dt=t&sl=" + encodeURIComponent(da) +
+              "&tl=" + encodeURIComponent(a) + "&q=" + encodeURIComponent(testo);
+  for (let tentativo = 0; tentativo < 2; tentativo++) {
+    const r = await fetch(url);
+    if (r.status === 429 && tentativo === 0) { await new Promise(ok => setTimeout(ok, 1500)); continue; }
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const dati = await r.json();
+    return (dati[0] || []).map(p => (p && p[0]) || "").join("");
+  }
+}
+
+function riempiSelect(select, scelta) {
+  const gruppo = (titolo, lista) => {
+    const g = document.createElement("optgroup"); g.label = titolo;
+    lista.forEach(l => g.append(new Option(l.name, l.code)));
+    select.append(g);
+  };
+  gruppo("Dialetti e lingue regionali italiane", lingue.filter(l => l.dialetto));
+  gruppo("Tutte le lingue", lingue.filter(l => !l.dialetto));
+  select.value = scelta;
+  if (!select.value) select.value = "it";
+}
+
+function creaCaselle() {
+  const tpl = document.getElementById("tpl-casella");
+  const scelte = salvate();
+  for (let i = 0; i < 3; i++) {
+    const nodo = tpl.content.firstElementChild.cloneNode(true);
+    const c = { nodo, select: nodo.querySelector("select"), area: nodo.querySelector("textarea") };
+    riempiSelect(c.select, scelte[i]);
+    c.area.addEventListener("input", () => programma(i));
+    c.area.addEventListener("focus", () => evidenzia(i));
+    c.select.addEventListener("change", () => { salva(); traduciDa(ultimaSorgente); });
+    nodo.querySelector(".azioni").addEventListener("click", e => {
+      const az = e.target.closest("button")?.dataset.az;
+      if (az === "ascolta") ascolta(c);
+      if (az === "copia") copia(c);
+      if (az === "cancella") { caselle.forEach(x => x.area.value = ""); stato(""); c.area.focus(); }
+    });
+    caselle.push(c);
+    document.getElementById("caselle").append(nodo);
+  }
+}
+
+function evidenzia(i) { caselle.forEach((c, j) => c.nodo.classList.toggle("attiva", i === j)); }
+
+function programma(i) {
+  ultimaSorgente = i;
+  evidenzia(i);
+  clearTimeout(timer);
+  timer = setTimeout(() => traduciDa(i), ATTESA_MS);
+}
+
+async function traduciDa(i) {
+  const sorg = caselle[i];
+  const testo = sorg.area.value.trim().slice(0, 4500);
+  const altre = caselle.filter((_, j) => j !== i);
+  const mio = ++numeroRichiesta;
+  if (!testo) { altre.forEach(c => c.area.value = ""); stato(""); return; }
+  stato("Traduco…");
+  try {
+    // Ogni casella va per conto suo: se una lingua non risponde, l'altra si traduce lo stesso
+    const risultati = await Promise.allSettled(altre.map(c => traduci(testo, sorg.select.value, c.select.value)));
+    if (mio !== numeroRichiesta) return;   // nel frattempo hai scritto altro
+    let errori = 0;
+    altre.forEach((c, k) => {
+      if (risultati[k].status === "fulfilled") c.area.value = risultati[k].value;
+      else { c.area.value = ""; errori++; }
+    });
+    stato(errori ? "Una traduzione non è riuscita, riprova tra poco" : "", errori > 0);
+  } catch (e) {
+    if (mio === numeroRichiesta) stato("Connessione assente o servizio occupato, riprova", true);
+  }
+}
+
+function ascolta(c) {
+  const testo = c.area.value;
+  if (!testo) return;
+  if (Nativo && Nativo.parla) { Nativo.parla(testo, c.select.value); return; }
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(testo);
+  u.lang = c.select.value;
+  speechSynthesis.speak(u);
+}
+
+async function copia(c) {
+  if (Nativo && Nativo.copia) Nativo.copia(c.area.value);
+  else {
+    try { await navigator.clipboard.writeText(c.area.value); }
+    catch (e) { c.area.select(); document.execCommand("copy"); }
+  }
+  stato("Copiato!");
+  setTimeout(() => stato(""), 1500);
+}
+
+function creaRapidi() {
+  const nav = document.getElementById("rapidi");
+  const t = document.createElement("span");
+  t.textContent = "Dialetti italiani: tocca per metterlo nella terza casella";
+  nav.append(t);
+  for (const [code, nome] of Object.entries(DIALETTI)) {
+    const b = document.createElement("button");
+    b.textContent = nome.replace(" (sperimentale)", "");
+    b.addEventListener("click", () => {
+      const c = caselle[2];
+      c.select.value = code; salva();
+      traduciDa(ultimaSorgente === 2 ? 0 : ultimaSorgente);
+      c.nodo.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    nav.append(b);
+  }
+}
+
+async function avvio() {
+  lingue = await caricaLingue();
+  creaCaselle();
+  creaRapidi();
+}
+avvio();
+</script>
+</body>
+</html>
